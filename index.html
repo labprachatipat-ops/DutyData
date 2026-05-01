@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nurse Planner Masterpiece</title>
+    <script src="https://tailwindcss.com"></script>
+    <link href="https://googleapis.com" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a; --card: #1e293b; --neon: #f472b6;
+            --color-m: #22d3ee; --color-a: #fb923c; --color-n: #818cf8;
+            --color-24: #22c55e; --color-sick: #ef4444; --color-leave: #0d9488; --color-c: #facc15;
+        }
+        body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: #f1f5f9; padding-bottom: 50px; touch-action: manipulation; }
+        .font-pro { font-family: 'Mitr', sans-serif; }
+        .time-header { background: #000; color: var(--neon); padding: 8px 15px; font-size: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid #334155; }
+        .nav-container { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; }
+        .btn-month { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: var(--card); border-radius: 12px; border: 1px solid #334155; color: white; cursor: pointer; }
+        .calendar-card { background: var(--card); border-radius: 1.5rem; overflow: hidden; border: 1px solid #334155; margin: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .week-row { background: #000; color: #94a3b8; display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; font-weight: bold; padding: 12px 0; }
+        .day-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #334155; }
+        .day-item { background: var(--card); height: 110px; padding: 4px; display: flex; flex-direction: column; cursor: pointer; overflow: hidden; position: relative; }
+        .day-active { box-shadow: inset 0 0 0 2px var(--neon) !important; background: #1e1b4b !important; z-index: 10; }
+        .day-today { background: #1e1b4b !important; }
+        .scroll-tags { flex: 1; overflow-y: auto; scrollbar-width: none; pointer-events: auto; }
+        .scroll-tags::-webkit-scrollbar { display: none; }
+        .tag { pointer-events: none; font-size: 7.5px; padding: 2px 4px; border-radius: 3px; margin-top: 2px; color: #fff; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 1.2; }
+        .tag-m { background-color: var(--color-m); color: #000; }
+        .tag-a { background-color: var(--color-a); color: #000; }
+        .tag-n { background-color: var(--color-n); }
+        .tag-24 { background-color: var(--color-24); color: #000; }
+        .tag-sick { background-color: var(--color-sick); }
+        .tag-leave { background-color: var(--color-leave); }
+        .tag-c { background-color: var(--color-c); color: #000; }
+        .input-hub { background: #000; border: 1px solid #334155; border-radius: 24px; padding: 15px; margin: 10px; }
+        #holiday-info { font-size: 11px; font-weight: 600; color: #facc15; margin-bottom: 8px; text-align: center; height: 16px; }
+        .slider-wrapper { display: flex; overflow-x: auto; gap: 8px; padding-bottom: 12px; scrollbar-width: none; -ms-overflow-style: none; }
+        .btn-slide { flex: 0 0 auto; padding: 12px 18px; border-radius: 12px; background: var(--card); border: 1px solid #334155; color: #94a3b8; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.1s; }
+        .act-nrs { background: var(--neon) !important; color: #000 !important; }
+        .act-m { background: var(--color-m) !important; color: #000 !important; }
+        .act-a { background: var(--color-a) !important; color: #000 !important; }
+        .act-n { background: var(--color-n) !important; color: #fff !important; }
+        .act-24 { background: var(--color-24) !important; color: #000 !important; }
+        .act-sick { background: var(--color-sick) !important; color: #fff !important; }
+        .act-leave { background: var(--color-leave) !important; color: #fff !important; }
+        .act-c { background: var(--color-c) !important; color: #000 !important; }
+        .custom-input { width: 100%; background: #1e293b; border: 1px solid var(--color-c); border-radius: 12px; padding: 12px; color: var(--color-c); font-size: 14px; font-weight: bold; outline: none; margin-bottom: 10px; display: none; }
+        .btn-save { width: 100%; background: var(--neon); color: #000; padding: 16px; border-radius: 16px; font-weight: 800; font-size: 16px; margin-top: 10px; border: none; cursor: pointer; }
+        .shift-table-row { display: grid; grid-template-columns: 1.2fr 1fr 0.5fr; gap: 10px; padding: 12px; border-bottom: 1px solid #334155; align-items: center; }
+        .sync-fixed { position: fixed; bottom: 20px; right: 20px; width: 55px; height: 55px; background: var(--neon); border-radius: 18px; color: #000; display: flex; align-items: center; justify-content: center; z-index: 100; box-shadow: 0 0 20px rgba(244, 114, 182, 0.4); border: none; cursor: pointer; }
+        .sync-loading { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="time-header sticky top-0 z-50">
+        <span id="rt-date">...</span>
+        <span id="rt-time">00:00:00</span>
+    </div>
+    <div class="nav-container">
+        <div onclick="moveMonth(-1)" class="btn-month"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="15 18 9 12 15 6"></polyline></svg></div>
+        <h1 id="m-label" class="font-pro text-xl font-bold uppercase tracking-widest text-white text-center">...</h1>
+        <div onclick="moveMonth(1)" class="btn-month"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+    </div>
+    <div class="max-w-md mx-auto">
+        <div class="calendar-card shadow-2xl">
+            <div class="week-row">
+                <div>อา.</div><div>จ.</div><div>อ.</div><div>พ.</div><div>พฤ.</div><div>ศ.</div><div>ส.</div>
+            </div>
+            <div id="calendar-grid" class="day-grid"></div>
+        </div>
+        <div class="input-hub shadow-2xl">
+            <div class="text-center mb-3">
+                <h3 id="input-title" class="text-[12px] font-bold text-pink-400 mb-1 uppercase tracking-widest">ลงเวร</h3>
+                <div id="holiday-info"></div>
+            </div>
+            <div class="slider-wrapper" id="n-slider">
+                <div onclick="setN('นุ่น', this)" class="btn-slide">🎀 นุ่น</div>
+                <div onclick="setN('พี่หมิว', this)" class="btn-slide">🎀 พี่หมิว</div>
+                <div onclick="setN('น้องฮาย', this)" class="btn-slide">🎀 น้องฮาย</div>
+                <div onclick="setN('พี่ซานิ', this)" class="btn-slide">🎀 พี่ซานิ</div>
+                <div onclick="setN('พี่ออย', this)" class="btn-slide">🎀 พี่ออย</div>
+            </div>
+            <div class="slider-wrapper" id="s-slider">
+                <div onclick="setS('☀️ เช้า', this)" class="btn-slide">เช้า ☀️</div>
+                <div onclick="setS('🌤️ บ่าย', this)" class="btn-slide">บ่าย 🌤️</div>
+                <div onclick="setS('🌙 ดึก', this)" class="btn-slide">ดึก 🌙</div>
+                <div onclick="setS('🕒 24 ชม', this)" class="btn-slide">24 ชม 🕒</div>
+                <div onclick="setS('🏥 ลาป่วย', this)" class="btn-slide">ลาป่วย 🏥</div>
+                <div onclick="setS('🏠 ลากิจ', this)" class="btn-slide">ลากิจ 🏠</div>
+                <div onclick="enableCustom(this)" class="btn-slide border-yellow-500/50 text-yellow-500">✏️ ระบุเอง</div>
+            </div>
+            <input type="text" id="custom-text" class="custom-input" placeholder="พิมพ์งานอื่น เช่น ประชุม...">
+            <button onclick="save()" class="btn-save active:scale-95 transition">บันทึก ✨</button>
+            <div class="mt-6 px-1 border-t border-white/5 pt-4">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">รายการเวรวันนี้</span>
+                    <button onclick="clearToday()" id="btn-clear" class="text-[9px] text-rose-500 font-bold hidden border border-rose-900/50 px-3 py-1 rounded-full">ล้างทั้งหมด</button>
+                </div>
+                <div id="today-rows" class="bg-black/40 rounded-2xl border border-white/5 overflow-hidden"></div>
+            </div>
+        </div>
+    </div>
+    <button onclick="syncAndRefresh(this)" class="sync-fixed active:scale-90 transition">
+        <svg id="sync-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+    </button>
+    <script>
+        const thaiHolidays = { "01-01": "วันขึ้นปีใหม่ 🎊", "01-16": "วันครู 🍎", "04-06": "วันจักรี 👑", "04-13": "วันสงกรานต์ 💦", "04-14": "วันสงกรานต์ 💦", "04-15": "วันสงกรานต์ 💦", "05-01": "วันแรงงาน 🛠️", "05-04": "วันฉัตรมงคล 👑", "06-03": "เฉลิมฯ พระราชินี 👸", "07-28": "เฉลิมฯ ร.10 🤴", "08-12": "วันแม่แห่งชาติ 💙", "10-13": "วันสวรรคต ร.9 🎖️", "10-23": "วันปิยมหาราช 👑", "12-05": "วันพ่อแห่งชาติ 💛", "12-10": "วันรัฐธรรมนูญ 📜", "12-31": "วันสิ้นปี 🎆" };
+        let db = JSON.parse(localStorage.getItem('nurse_db_final_v11')) || [];
+        let todayObj = new Date(); let selDate = todayObj.toLocaleDateString('sv'); let viewDate = new Date();
+        let tempN = '', tempS = '', isCustom = false;
+        const thaiM = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+        function updateRT() { const n = new Date(); document.getElementById('rt-time').innerText = n.toLocaleTimeString('th-TH'); document.getElementById('rt-date').innerText = n.toLocaleDateString('th-TH', {day:'numeric', month:'long', year:'numeric'}); }
+        setInterval(updateRT, 1000); updateRT();
+        function moveMonth(s) { viewDate.setMonth(viewDate.getMonth() + s); render(); }
+        function render() {
+            const grid = document.getElementById('calendar-grid'); grid.innerHTML = '';
+            const y = viewDate.getFullYear(), m = viewDate.getMonth();
+            document.getElementById('m-label').innerText = thaiM[m] + " " + (y+543);
+            const fDay = new Date(y, m, 1).getDay(), lDate = new Date(y, m+1, 0).getDate();
+            const realToday = todayObj.toLocaleDateString('sv');
+            for (let i = 0; i < fDay; i++) grid.innerHTML += `<div class="day-item opacity-5"></div>`;
+            for (let d = 1; d <= lDate; d++) {
+                const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const recs = db.filter(s => s.date === dStr);
+                const cell = document.createElement('div');
+                cell.className = `day-item ${selDate === dStr ? 'day-active' : ''} ${realToday === dStr ? 'day-today' : ''}`;
+                cell.onclick = () => { selDate = dStr; resetInputHub(); render(); };
+                cell.innerHTML = `<span class="text-[10px] font-bold ${selDate === dStr ? 'text-pink-400' : (realToday === dStr ? 'text-cyan-400 underline' : 'text-slate-500')}">${d}</span>`;
+                let scroll = document.createElement('div'); scroll.className = 'scroll-tags';
+                recs.forEach(it => {
+                    let c = 'tag-c'; let label = it.name + ' ' + it.time;
+                    if(it.time.includes('เช้า')) c='tag-m'; else if(it.time.includes('บ่าย')) c='tag-a'; else if(it.time.includes('ดึก')) c='tag-n'; else if(it.time.includes('24')) c='tag-24'; else if(it.time === '🏥 ลาป่วย') c='tag-sick'; else if(it.time === '🏠 ลากิจ') c='tag-leave';
+                    scroll.innerHTML += `<span class="tag ${c}">${label}</span>`;
+                });
+                cell.appendChild(scroll); grid.appendChild(cell);
+            }
+            updateRows();
+        }
+        async function syncAndRefresh(btn) {
+    const icon = document.getElementById('sync-icon');
+    
+    // 1. ใส่ลิงก์ URL ที่เพื่อนก๊อปมาตรงนี้
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyAOfQNfuEnyuJA7k8Di6UGIj-kZBQafgvkefGF3EsNf0bEqQPKYHuX7__qt_PMei_U/exec"; 
+
+    if (db.length === 0) return alert("❌ ไม่มีข้อมูลให้ซิงค์จ้า");
+
+    // เริ่มหมุนไอคอน
+    icon.classList.add('sync-loading');
+    btn.style.pointerEvents = 'none'; 
+
+    try {
+        // 2. ส่งข้อมูลไป Google Sheets
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(db)
+        });
+        
+        const result = await response.text();
+        
+        // 3. รีเฟรชหน้าจอหลังจากซิงค์สำเร็จ
+        db = JSON.parse(localStorage.getItem('nurse_db_final_v11')) || [];
+        render();
+        
+        alert("✅ " + result);
+    } catch (error) {
+        console.error(error);
+        alert("⚠️ ซิงค์ไม่สำเร็จ! ตรวจสอบเน็ตดูนะเพื่อน");
+    } finally {
+        // หยุดหมุน
+        icon.classList.remove('sync-loading');
+        btn.style.pointerEvents = 'auto';
+    }
+}
+        function resetInputHub() {
+            tempN = ''; tempS = ''; isCustom = false; document.getElementById('custom-text').value = '';
+            document.getElementById('custom-text').style.display = 'none';
+            document.querySelectorAll('.btn-slide').forEach(b => b.className = 'btn-slide');
+        }
+        function updateRows() {
+            const cont = document.getElementById('today-rows'), btn = document.getElementById('btn-clear'), hInfo = document.getElementById('holiday-info');
+            document.getElementById('input-title').innerText = `จัดเวรวันที่ ${selDate.split('-').reverse().join('/')}`;
+            hInfo.innerText = thaiHolidays[selDate.substring(5)] || "";
+            const recs = db.filter(s => s.date === selDate); cont.innerHTML = '';
+            if(recs.length > 0) {
+                btn.classList.remove('hidden');
+                recs.forEach(s => {
+                    let sc = 'text-slate-400'; if(s.time.includes('☀️')) sc = 'text-cyan-400'; else if(s.time.includes('🌤️')) sc = 'text-orange-400';
+                    cont.innerHTML += `<div class="shift-table-row"><span class="text-sm font-bold text-white">${s.name}</span><div class="text-center"><span class="px-2 py-0.5 rounded bg-black/40 text-pink-400 text-[9px] font-bold border border-white/5">${s.time}</span></div><div class="text-right" onclick="del(${s.id})"><span class="text-rose-500 font-bold p-2">✕</span></div></div>`;
+                });
+            } else { btn.classList.add('hidden'); cont.innerHTML = '<p class="text-center text-slate-700 text-xs py-10 uppercase">ไม่มีรายการ</p>'; }
+        }
+        function setN(n, b) { tempN = n; document.getElementById('n-slider').querySelectorAll('.btn-slide').forEach(x => x.className = 'btn-slide'); b.classList.add('act-nrs'); }
+        function setS(t, b) { 
+            tempS = t; isCustom = false; document.getElementById('custom-text').style.display = 'none'; document.getElementById('custom-text').value = '';
+            document.querySelectorAll('#s-slider .btn-slide').forEach(x => x.className = 'btn-slide');
+            if(t.includes('เช้า')) b.classList.add('act-m'); else if(t.includes('บ่าย')) b.classList.add('act-a'); else if(t.includes('ดึก')) b.classList.add('act-n'); else if(t.includes('24')) b.classList.add('act-24'); else if(t === '🏥 ลาป่วย') b.classList.add('act-sick'); else if(t === '🏠 ลากิจ') b.classList.add('act-leave');
+        }
+        function enableCustom(b) { isCustom = true; tempS = ''; document.getElementById('custom-text').style.display = 'block'; document.getElementById('custom-text').focus(); document.querySelectorAll('#s-slider .btn-slide').forEach(x => x.className = 'btn-slide'); b.classList.add('act-c'); }
+        function save() {
+            let finalS = isCustom ? document.getElementById('custom-text').value : tempS;
+            if(!tempN || !finalS) return alert("ระบุพยาบาลและกะก่อนจ้า ✨");
+            db.push({ id: Date.now(), name: tempN, date: selDate, time: finalS });
+            localStorage.setItem('nurse_db_final_v11', JSON.stringify(db)); resetInputHub(); render();
+        }
+        function del(id) { db = db.filter(s => s.id !== id); localStorage.setItem('nurse_db_final_v11', JSON.stringify(db)); render(); }
+        function clearToday() { if(confirm('ล้างทั้งหมดของวันนี้?')) { db = db.filter(s => s.date !== selDate); localStorage.setItem('nurse_db_final_v11', JSON.stringify(db)); render(); } }
+        render();
+    </script>
+</body>
+</html>
